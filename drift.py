@@ -1,4 +1,4 @@
-# bonus_drift.py - runs on the Pico
+# drift.py - runs on the Pico
 # Compares the DS3231 RTC seconds with the Pico's own millisecond timer.
 # Each time the RTC seconds change, it logs the RTC total, the Pico elapsed
 # ms, and the drift between them to drift_log.txt.
