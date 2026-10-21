@@ -1,17 +1,38 @@
-﻿py : test_append_keeps_old_lines (test_lab5.TestLab5.test_append_keeps_old_lines) ... ok
+﻿py : test_log_is_appended (test_lab5.TestLab5.test_log_is_appended) ... ok
 At line:1 char:364
-+ ... 1115\lab5"; py -m unittest -v test_lab5 test_plot_histogram *> test_o ...
-+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (test_append_kee...d_lines) ... ok:String) [], RemoteException
++ ... ED 1115\lab5"; py -m unittest -v test_lab5 *> test_output.txt; Get-Co ...
++                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_log_is_app...ppended) ... ok:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-test_bcd_tens_digit (test_lab5.TestLab5.test_bcd_tens_digit) ... ok
-test_single_trial (test_lab5.TestLab5.test_single_trial) ... ok
-test_wrap_on_59 (test_lab5.TestLab5.test_wrap_on_59) ... ok
-test_wrap_past_59 (test_lab5.TestLab5.test_wrap_past_59) ... ok
-test_histogram_written (test_plot_histogram.TestPlotHistogram.test_histogram_written) ... ok
+test_one_trial (test_lab5.TestLab5.test_one_trial) ... ok
+test_tens_digit_in_bcd (test_lab5.TestLab5.test_tens_digit_in_bcd) ... ok
+test_wrap_past_one_minute (test_lab5.TestLab5.test_wrap_past_one_minute) ... ok
 
 ----------------------------------------------------------------------
-Ran 6 tests in 5.461s
+Ran 4 tests in 0.058s
 
 OK
+press button to start
+count 15 seconds, press button again
+15
+press button to start
+count 15 seconds, press button again
+15
+press button to start
+log saved
+press button to start
+count 15 seconds, press button again
+15
+press button to start
+log saved
+press button to start
+count 15 seconds, press button again
+15
+press button to start
+log saved
+press button to start
+count 15 seconds, press button again
+15
+press button to start
+log saved

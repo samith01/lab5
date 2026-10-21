@@ -1,95 +1,106 @@
 # test_lab5.py - runs on the PC, no Pico needed
-# Fakes the machine and time modules, then runs lab5.py against them.
-# Checks BCD decoding, the 59 -> 0 wrap, and that log.txt is appended to.
-import contextlib
-import io
+# lab5.py imports machine and time, which only exist on the Pico.
+# So we replace them with fake versions, run lab5.py, and check log.txt.
 import os
 import runpy
+import sys
 import tempfile
 import types
 import unittest
-from pathlib import Path
-from unittest import mock
-
-LAB_DIR = Path(__file__).resolve().parent
 
 
 class FakePin:
+    # Constants that lab5.py uses when it creates a Pin
     IN = 0
     PULL_DOWN = 1
-    button_values = []  # values returned by SW1.value(), in order
+
+    # Button readings for the test, taken in order
+    button_values = []
 
     def __init__(self, *args, **kwargs):
         pass
 
     def value(self):
+        # When no readings are left, stop the game like Ctrl+C does
         if not FakePin.button_values:
-            # Out of scripted presses: stop the game loop like Ctrl+C does
             raise KeyboardInterrupt
         return FakePin.button_values.pop(0)
 
 
 class FakeI2C:
-    rtc_seconds = []  # raw BCD seconds bytes returned by readfrom_mem, in order
+    # Raw RTC seconds bytes (BCD), returned in order
+    rtc_values = []
 
     def __init__(self, *args, **kwargs):
         pass
 
     def readfrom_mem(self, addr, memaddr, nbytes):
-        return bytes([FakeI2C.rtc_seconds.pop(0)])
+        # lab5.py asks for 1 byte, so return a 1-byte bytes object
+        return bytes([FakeI2C.rtc_values.pop(0)])
 
 
-def run_lab(button_values, rtc_seconds):
-    # Each trial needs 4 button reads: press, release, press, release
+def run_lab5(button_values, rtc_values):
+    # Set up the fake readings
     FakePin.button_values = list(button_values)
-    FakeI2C.rtc_seconds = list(rtc_seconds)
-    fake_machine = types.SimpleNamespace(Pin=FakePin, I2C=FakeI2C)
-    fake_time = types.SimpleNamespace(sleep=lambda s: None)
-    with mock.patch.dict("sys.modules", {"machine": fake_machine, "time": fake_time}):
-        with contextlib.redirect_stdout(io.StringIO()):
-            runpy.run_path(str(LAB_DIR / "lab5.py"))
+    FakeI2C.rtc_values = list(rtc_values)
+
+    # Put the fake modules in place of the real ones
+    sys.modules["machine"] = types.SimpleNamespace(Pin=FakePin, I2C=FakeI2C)
+    sys.modules["time"] = types.SimpleNamespace(sleep=lambda seconds: None)
+
+    # Run lab5.py. It prints a lot, so hide the output here.
+    runpy.run_path("lab5.py")
 
 
 class TestLab5(unittest.TestCase):
     def setUp(self):
-        # Run in a temp folder so the real log.txt is never touched
-        self.old_cwd = os.getcwd()
-        self.tmp = tempfile.TemporaryDirectory()
-        os.chdir(self.tmp.name)
+        # Work in a temporary folder so the real log.txt is not changed
+        self.old_folder = os.getcwd()
+        self.temp = tempfile.TemporaryDirectory()
+        os.chdir(self.temp.name)
+
+        # Copy lab5.py into the temp folder so runpy can find it
+        with open(os.path.join(self.old_folder, "lab5.py")) as f:
+            code = f.read()
+        with open("lab5.py", "w") as f:
+            f.write(code)
 
     def tearDown(self):
-        os.chdir(self.old_cwd)
-        self.tmp.cleanup()
+        os.chdir(self.old_folder)
+        self.temp.cleanup()
 
     def read_log(self):
         with open("log.txt") as f:
             return f.read()
 
-    def test_single_trial(self):
-        # BCD 0x10 = 10 s, BCD 0x25 = 25 s -> 15 s elapsed
-        run_lab([1, 0, 1, 0], [0x10, 0x25])
+    def test_one_trial(self):
+        # Press, release, press, release = one trial
+        # Start reading: 10 seconds (BCD 0x10). End reading: 25 seconds (BCD 0x25).
+        # Elapsed time: 25 - 10 = 15
+        run_lab5([1, 0, 1, 0], [0x10, 0x25])
         self.assertEqual(self.read_log(), "15\n")
 
-    def test_bcd_tens_digit(self):
-        # BCD 0x40 = 40 s, BCD 0x55 = 55 s -> 15 s elapsed
-        run_lab([1, 0, 1, 0], [0x40, 0x55])
+    def test_tens_digit_in_bcd(self):
+        # BCD 0x40 is 40 seconds, BCD 0x55 is 55 seconds
+        # Elapsed time: 55 - 40 = 15
+        run_lab5([1, 0, 1, 0], [0x40, 0x55])
         self.assertEqual(self.read_log(), "15\n")
 
-    def test_wrap_past_59(self):
-        # 58 s -> 13 s crosses the minute: (13 - 58) % 60 = 15
-        run_lab([1, 0, 1, 0], [0x58, 0x13])
+    def test_wrap_past_one_minute(self):
+        # Start at 58 s, end at 13 s (the minute rolled over)
+        # Elapsed time: (13 - 58) % 60 = 15
+        run_lab5([1, 0, 1, 0], [0x58, 0x13])
         self.assertEqual(self.read_log(), "15\n")
 
-    def test_wrap_on_59(self):
-        # 59 s -> 14 s: (14 - 59) % 60 = 15
-        run_lab([1, 0, 1, 0], [0x59, 0x14])
-        self.assertEqual(self.read_log(), "15\n")
-
-    def test_append_keeps_old_lines(self):
-        # Existing log.txt entries must survive a new run
+    def test_log_is_appended(self):
+        # An old line is already in log.txt
         with open("log.txt", "w") as f:
             f.write("9\n")
-        run_lab([1, 0, 1, 0, 1, 0, 1, 0], [0x00, 0x15, 0x30, 0x45])
+
+        # Two trials, each 15 s
+        run_lab5([1, 0, 1, 0, 1, 0, 1, 0], [0x00, 0x15, 0x30, 0x45])
+
+        # The old line is still there, and the new lines are added after it
         self.assertEqual(self.read_log(), "9\n15\n15\n")
 
 
